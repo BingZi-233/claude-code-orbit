@@ -365,7 +365,7 @@ if (!STATIC) setInterval(checkApprovals, 5000).unref()
 // ---------------------------------------------------------------------------
 
 const mcp = new Server(
-  { name: 'onebot', version: '1.0.2' },
+  { name: 'onebot', version: '1.0.3' },
   {
     capabilities: {
       tools: {},
@@ -681,10 +681,22 @@ async function handleMessage(event: Record<string, unknown>): Promise<void> {
     meta.additional_images = String(imageUrls.length - 1)
   }
 
+  // Build channel content with explicit image handling instructions
+  let channelContent = rawText || ''
+  if (imagePath) {
+    const note = `[图片已保存至本地，请先调用 Read("${imagePath}") 查看图片内容，再回复用户]`
+    channelContent = channelContent ? `${channelContent}\n${note}` : note
+  } else if (imageUrls.length > 0) {
+    const note = `[图片下载失败，请先调用 download_attachment 下载图片（URL: ${imageUrls[0].url}），下载完成后 Read 文件路径，再回复用户]`
+    channelContent = channelContent ? `${channelContent}\n${note}` : note
+  } else if (!channelContent) {
+    channelContent = '(无内容)'
+  }
+
   mcp.notification({
     method: 'notifications/claude/channel',
     params: {
-      content: rawText || '(image)',
+      content: channelContent,
       meta,
     },
   }).catch(err => {
