@@ -655,25 +655,8 @@ async function handleMessage(event: Record<string, unknown>): Promise<void> {
     return
   }
 
-  // Download images
+  // Extract images
   const imageUrls = extractImages(segments)
-  let imagePath: string | undefined
-  if (imageUrls.length > 0) {
-    try {
-      const img = imageUrls[0]
-      const res = await fetch(img.url)
-      if (res.ok) {
-        const buf = Buffer.from(await res.arrayBuffer())
-        const ext = img.url.includes('.') ? img.url.split('.').pop()?.split('?')[0] ?? 'jpg' : 'jpg'
-        const path = join(INBOX_DIR, `${Date.now()}-${randomBytes(4).toString('hex')}.${ext}`)
-        mkdirSync(INBOX_DIR, { recursive: true })
-        writeFileSync(path, buf)
-        imagePath = path
-      }
-    } catch (err) {
-      process.stderr.write(`onebot channel: image download failed: ${err}\n`)
-    }
-  }
 
   // Build meta
   const meta: Record<string, string> = {
@@ -685,26 +668,19 @@ async function handleMessage(event: Record<string, unknown>): Promise<void> {
     ts: new Date(Number(event.time ?? 0) * 1000).toISOString(),
   }
   if (groupId) meta.group_id = groupId
-  if (imagePath) meta.image_path = imagePath
 
-  // Always store original image URL (for download fallback if local download failed)
+  // Store image URLs for user to download
   if (imageUrls.length > 0) {
     meta.image_url = imageUrls[0].url
-    if (!imagePath) meta.image_download_failed = 'true'
   }
-
-  // Additional images as attachment info
   if (imageUrls.length > 1) {
     meta.additional_images = String(imageUrls.length - 1)
   }
 
-  // Build channel content with explicit image handling instructions
+  // Build channel content with image handling instructions
   let channelContent = rawText || ''
-  if (imagePath) {
-    const note = `[图片已保存至本地，请先调用 Read("${imagePath}") 查看图片内容，再回复用户]`
-    channelContent = channelContent ? `${channelContent}\n${note}` : note
-  } else if (imageUrls.length > 0) {
-    const note = `[图片下载失败，请先调用 download_attachment 下载图片（URL: ${imageUrls[0].url}），下载完成后 Read 文件路径，再回复用户]`
+  if (imageUrls.length > 0) {
+    const note = `[图片] 请先调用 download_attachment 下载图片（URL: ${imageUrls[0].url}），下载完成后 Read 文件路径，再回复用户`
     channelContent = channelContent ? `${channelContent}\n${note}` : note
   } else if (!channelContent) {
     channelContent = '(无内容)'
