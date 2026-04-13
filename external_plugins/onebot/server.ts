@@ -247,8 +247,11 @@ type MessageSegment = {
 
 function extractText(segments: MessageSegment[]): string {
   return segments
-    .filter(s => s.type === 'text')
-    .map(s => String(s.data.text ?? ''))
+    .filter(s => s.type === 'text' || s.type === 'at')
+    .map(s => {
+      if (s.type === 'at') return `@${s.data.qq}`
+      return String(s.data.text ?? '')
+    })
     .join('')
     .trim()
 }
@@ -266,6 +269,48 @@ function hasAtSegment(segments: MessageSegment[], botId: string): boolean {
 function getReplyId(segments: MessageSegment[]): string | undefined {
   const reply = segments.find(s => s.type === 'reply')
   return reply ? String(reply.data.id) : undefined
+}
+
+async function fetchReplyContent(replyId: string): Promise<string | undefined> {
+  try {
+    const resp = await callOneBotApi('get_msg', { message_id: Number(replyId) })
+    const data = resp as { data?: { message?: MessageSegment[]; sender?: { nickname?: string; user_id?: number } } }
+    const replySegments = Array.isArray(data?.data?.message) ? data.data.message : []
+    const replyText = extractText(replySegments)
+    if (!replyText) return undefined
+    const replyUser = String(data?.data?.sender?.nickname ?? data?.data?.sender?.user_id ?? '未知')
+    return `[引用 ${replyUser}]: ${replyText}`
+  } catch {
+    return undefined
+  }
+}
+
+async function fetchForwardContent(segments: MessageSegment[]): Promise<string | undefined> {
+  const forwardSeg = segments.find(s => s.type === 'forward')
+  if (!forwardSeg) return undefined
+  const forwardId = String(forwardSeg.data.id ?? '')
+  if (!forwardId) return undefined
+  try {
+    const resp = await callOneBotApi('get_forward_msg', { message_id: forwardId })
+    const data = resp as {
+      data?: {
+        messages?: Array<{
+          sender?: { nickname?: string; user_id?: number }
+          content?: MessageSegment[]
+        }>
+      }
+    }
+    const messages = Array.isArray(data?.data?.messages) ? data.data.messages : []
+    if (messages.length === 0) return undefined
+    const lines = messages.map(m => {
+      const name = m.sender?.nickname ?? String(m.sender?.user_id ?? '未知')
+      const text = extractText(Array.isArray(m.content) ? m.content : [])
+      return `  [${name}]: ${text}`
+    })
+    return `[合并转发消息，共 ${messages.length} 条]\n${lines.join('\n')}`
+  } catch {
+    return undefined
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -369,7 +414,7 @@ if (!STATIC) setInterval(checkApprovals, 5000).unref()
 // ---------------------------------------------------------------------------
 
 const mcp = new Server(
-  { name: 'onebot', version: '1.0.4' },
+  { name: 'onebot', version: '1.0.6' },
   {
     capabilities: {
       tools: {},
@@ -658,6 +703,13 @@ async function handleMessage(event: Record<string, unknown>): Promise<void> {
   // Extract images
   const imageUrls = extractImages(segments)
 
+  // Get reply message ID and fetch referenced content in parallel
+  const replyId = getReplyId(segments)
+  const [replyContent, forwardContent] = await Promise.all([
+    replyId ? fetchReplyContent(replyId) : Promise.resolve(undefined),
+    fetchForwardContent(segments),
+  ])
+
   // Build meta
   const meta: Record<string, string> = {
     chat_id: chatId,
@@ -668,6 +720,7 @@ async function handleMessage(event: Record<string, unknown>): Promise<void> {
     ts: new Date(Number(event.time ?? 0) * 1000).toISOString(),
   }
   if (groupId) meta.group_id = groupId
+  if (replyId) meta.reply_id = replyId
 
   // Store image URLs for user to download
   if (imageUrls.length > 0) {
@@ -677,8 +730,14 @@ async function handleMessage(event: Record<string, unknown>): Promise<void> {
     meta.additional_images = String(imageUrls.length - 1)
   }
 
-  // Build channel content with image handling instructions
-  let channelContent = rawText || ''
+  // Build channel content with reply, forward, and image handling instructions
+  const parts: string[] = []
+  if (replyContent) parts.push(replyContent)
+  if (rawText) parts.push(rawText)
+  if (forwardContent) parts.push(forwardContent)
+  const baseContent = parts.join('\n')
+
+  let channelContent = baseContent || ''
   if (imageUrls.length > 0) {
     const note = `[图片] 请先调用 download_attachment 下载图片（URL: ${imageUrls[0].url}），下载完成后 Read 文件路径，再回复用户`
     channelContent = channelContent ? `${channelContent}\n${note}` : note
