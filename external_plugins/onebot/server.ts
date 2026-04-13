@@ -365,7 +365,7 @@ if (!STATIC) setInterval(checkApprovals, 5000).unref()
 // ---------------------------------------------------------------------------
 
 const mcp = new Server(
-  { name: 'onebot', version: '1.0.0' },
+  { name: 'onebot', version: '1.0.1' },
   {
     capabilities: {
       tools: {},
@@ -377,7 +377,7 @@ const mcp = new Server(
     instructions: [
       'The sender reads QQ (via OneBot V11), not this session. Anything you want them to see must go through the reply tool — your transcript output never reaches their chat.',
       '',
-      'Messages from QQ arrive as <channel source="onebot" chat_id="..." message_id="..." user="..." message_type="..." ts="...">. If the tag has an image_path attribute, Read that file — it is a photo the sender attached. Reply with the reply tool — pass chat_id and message_type back.',
+      'Messages from QQ arrive as <channel source="onebot" chat_id="..." message_id="..." user="..." message_type="..." ts="...">. If the tag has an image_path attribute, Read that file — it is a photo the sender attached. If the tag has image_download_failed="true" but has image_url, call download_attachment with that URL, then Read the returned path. Reply with the reply tool — pass chat_id and message_type back.',
       '',
       'reply accepts text and optional image URLs. Use recall_message to retract a previously sent message. QQ does not support message editing — use recall + re-send if needed.',
       '',
@@ -637,6 +637,12 @@ async function handleMessage(event: Record<string, unknown>): Promise<void> {
   }
   if (groupId) meta.group_id = groupId
   if (imagePath) meta.image_path = imagePath
+
+  // Always store original image URL (for download fallback if local download failed)
+  if (imageUrls.length > 0) {
+    meta.image_url = imageUrls[0].url
+    if (!imagePath) meta.image_download_failed = 'true'
+  }
 
   // Additional images as attachment info
   if (imageUrls.length > 1) {
