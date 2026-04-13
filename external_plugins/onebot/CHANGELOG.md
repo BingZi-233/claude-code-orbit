@@ -4,6 +4,21 @@
 
 项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.2] - 2026-04-13
+
+### 修复
+- **文件扩展名推断失败**：`download_attachment` 工具无法推断某些 URL 的文件类型，导致下载的文件默认保存为 `.dat`
+  - 添加完整的 MIME 类型到扩展名映射表（支持 image/jpeg, image/png, application/pdf, video/mp4 等常见格式）
+  - 优化 MIME 类型解析，支持 `Content-Type` 字段中的参数（如 `image/jpeg;charset=utf-8`）
+  - 改进 URL 路径回退方案，确保无法从 `Content-Type` 获取时，从 URL 中正确提取扩展名
+  - 默认回退到 `.bin` 而非 `.dat`，更符合二进制文件的命名约定
+  - 现在 QQ 图片、PDF、视频等常见文件格式都能自动识别并保存为正确的扩展名
+
+### 变更
+- 版本号更新至 1.0.2
+
+---
+
 ## [1.0.1] - 2026-04-13
 
 ### 修复

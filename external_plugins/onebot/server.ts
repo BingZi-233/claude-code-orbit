@@ -365,7 +365,7 @@ if (!STATIC) setInterval(checkApprovals, 5000).unref()
 // ---------------------------------------------------------------------------
 
 const mcp = new Server(
-  { name: 'onebot', version: '1.0.1' },
+  { name: 'onebot', version: '1.0.2' },
   {
     capabilities: {
       tools: {},
@@ -529,7 +529,39 @@ mcp.setRequestHandler(CallToolRequestSchema, async req => {
         if (buf.length > MAX_ATTACHMENT_BYTES) {
           throw new Error(`file too large: ${(buf.length / 1024 / 1024).toFixed(1)}MB, max 50MB`)
         }
-        const name = filename ?? `${Date.now()}-${randomBytes(4).toString('hex')}.dat`
+
+        // Infer extension from Content-Type header or URL
+        let ext = 'bin'
+        const contentType = res.headers.get('content-type')?.split(';')[0] ?? ''
+        if (contentType) {
+          const mimeToExt: Record<string, string> = {
+            'image/jpeg': 'jpg',
+            'image/png': 'png',
+            'image/gif': 'gif',
+            'image/webp': 'webp',
+            'image/bmp': 'bmp',
+            'image/x-icon': 'ico',
+            'application/pdf': 'pdf',
+            'application/json': 'json',
+            'text/plain': 'txt',
+            'text/html': 'html',
+            'text/csv': 'csv',
+            'application/zip': 'zip',
+            'application/x-rar-compressed': 'rar',
+            'video/mp4': 'mp4',
+            'video/webm': 'webm',
+            'audio/mpeg': 'mp3',
+            'audio/wav': 'wav',
+          }
+          ext = mimeToExt[contentType] ?? contentType.split('/').pop()?.split('+')[0] ?? 'bin'
+        } else {
+          // Fallback: extract from URL pathname
+          const urlPath = new URL(url).pathname
+          const match = urlPath.match(/\.(\w+)$/)
+          if (match) ext = match[1].toLowerCase()
+        }
+
+        const name = filename ?? `${Date.now()}-${randomBytes(4).toString('hex')}.${ext}`
         const path = join(INBOX_DIR, name)
         mkdirSync(INBOX_DIR, { recursive: true })
         writeFileSync(path, buf)
