@@ -82,6 +82,10 @@ function defaultAccess(): Access {
 const MAX_CHUNK_LIMIT = 2000
 const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024
 
+// Track bot-sent message IDs to validate reply-to-bot triggers
+const botSentIds = new Set<string>()
+const BOT_SENT_IDS_MAX = 500
+
 // ---------------------------------------------------------------------------
 // Access file I/O
 // ---------------------------------------------------------------------------
@@ -501,6 +505,12 @@ mcp.setRequestHandler(CallToolRequestSchema, async req => {
             ? await sendPrivateMsg(chatId, segments)
             : await sendGroupMsg(chatId, segments)
           sentIds.push(msgId)
+          if (msgId) {
+            botSentIds.add(String(msgId))
+            if (botSentIds.size > BOT_SENT_IDS_MAX) {
+              botSentIds.delete(botSentIds.values().next().value!)
+            }
+          }
         }
 
         // Send images as separate messages
@@ -512,6 +522,12 @@ mcp.setRequestHandler(CallToolRequestSchema, async req => {
             ? await sendPrivateMsg(chatId, segments)
             : await sendGroupMsg(chatId, segments)
           sentIds.push(msgId)
+          if (msgId) {
+            botSentIds.add(String(msgId))
+            if (botSentIds.size > BOT_SENT_IDS_MAX) {
+              botSentIds.delete(botSentIds.values().next().value!)
+            }
+          }
         }
 
         const result = sentIds.length === 1
@@ -607,7 +623,8 @@ async function handleMessage(event: Record<string, unknown>): Promise<void> {
       const mentioned = hasAtSegment(segments, botId) || isMentionedByPattern(rawText, access.mentionPatterns)
       // Also check reply-to-bot
       const replyId = getReplyId(segments)
-      if (!mentioned && !replyId) return
+      const isReplyToBot = replyId !== undefined && botSentIds.has(replyId)
+      if (!mentioned && !isReplyToBot) return
     }
   }
 
