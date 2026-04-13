@@ -1,7 +1,7 @@
 {
   "name": "onebot",
   "description": "OneBot V11 channel for Claude Code — QQ messaging bridge with built-in access control. Manage pairing, allowlists, and policy via /onebot:access.",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "keywords": [
     "onebot",
     "qq",

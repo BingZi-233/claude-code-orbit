@@ -4,6 +4,21 @@
 
 项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.4] - 2026-04-13
+
+### 优化
+- **图片存储位置**：将图片和附件从持久化目录 `~/.claude/channels/onebot/inbox/` 改为系统临时目录
+  - Linux/macOS：`/tmp/claude-onebot-inbox/`
+  - Windows：`%TEMP%/claude-onebot-inbox/`
+  - 自动化清理：操作系统会定期自动清理临时目录中的过期文件，无需手动维护
+  - 好处：不再积累到用户的 `.claude` 目录，保持插件目录干净
+
+### 变更
+- 版本号更新至 1.0.4
+- README.md：更新状态文件说明，说明临时目录自动清理机制
+
+---
+
 ## [1.0.3] - 2026-04-13
 
 ### 修复

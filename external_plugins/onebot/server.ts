@@ -19,7 +19,7 @@ import {
 import { z } from 'zod'
 import { randomBytes } from 'crypto'
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync, renameSync, realpathSync } from 'fs'
-import { homedir } from 'os'
+import { homedir, tmpdir } from 'os'
 import { join, sep } from 'path'
 
 // ---------------------------------------------------------------------------
@@ -30,7 +30,7 @@ const STATE_DIR = process.env.ONEBOT_STATE_DIR ?? join(homedir(), '.claude', 'ch
 const ACCESS_FILE = join(STATE_DIR, 'access.json')
 const APPROVED_DIR = join(STATE_DIR, 'approved')
 const ENV_FILE = join(STATE_DIR, '.env')
-const INBOX_DIR = join(STATE_DIR, 'inbox')
+const INBOX_DIR = join(tmpdir(), 'claude-onebot-inbox')
 
 // ---------------------------------------------------------------------------
 // Load .env
@@ -365,7 +365,7 @@ if (!STATIC) setInterval(checkApprovals, 5000).unref()
 // ---------------------------------------------------------------------------
 
 const mcp = new Server(
-  { name: 'onebot', version: '1.0.3' },
+  { name: 'onebot', version: '1.0.4' },
   {
     capabilities: {
       tools: {},

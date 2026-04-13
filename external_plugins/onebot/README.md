@@ -104,14 +104,15 @@ claude --channels plugin:onebot@claude-code-orbit
 
 ## 状态文件
 
-所有状态存储在 `~/.claude/channels/onebot/`：
+持久化状态存储在 `~/.claude/channels/onebot/`：
 
 ```
 ├── access.json      # 访问控制配置
 ├── approved/        # 待配对用户（自动处理）
-├── inbox/           # 下载附件目录
 └── .env             # 环境变量
 ```
+
+图片和附件自动保存到系统临时目录（`/tmp/claude-onebot-inbox` on Linux/macOS, `%TEMP%/claude-onebot-inbox` on Windows），由操作系统自动清理。
 
 ## 环境变量
 
